@@ -1,0 +1,223 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enums remplacés par des strings pour compatibilité SQLite
+// Les valeurs possibles sont documentées dans les commentaires ci-dessous
+// UserRole: "ADMIN" | "CLIENT"
+// ModuleKey: "PACK_CONTROLE" | "PARCOURS_ENTREE" | "ECHELLE_QUALITE" | "CHRONO_MANAGER" | "SUIVI" | "DOCUMENTS" | "MESSAGERIE" | "PARAMETRES"
+// OfferKey: "SECURISATION" | "STRUCTURATION" | "PILOTAGE_QUALITE"
+// OfferStatus: "ACTIVE" | "COMPLETED" | "ARCHIVED"
+// DocumentFolder: "FAMILLES" | "EQUIPE" | "DIRECTION" | "ARCHIVES" | "GENERAL"
+// DocumentCategory: "PROVIDED_BY_CLIENT" | "PROVIDED_BY_ADMIN" | "ATTESTATION" | "OPCO" | "COMPTE_RENDU" | "OTHER"
+// ActionStatus: "TODO" | "IN_PROGRESS" | "DONE"
+// ThreadStatus: "OPEN" | "CLOSED"
+// LeadStatus: "NEW" | "CONTACTED" | "QUALIFIED" | "LOST"
+// DiagnosticAxis: "SECURISATION" | "STRUCTURATION" | "PILOTAGE_QUALITE"
+
+model Structure {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           User[]
+  moduleAccesses  ModuleAccess[]
+  offerPurchased  OfferPurchased[]
+  documents       Document[]
+  actionItems     ActionItem[]
+  meetingReports  MeetingReport[]
+  qualityAssessments QualityAssessment[]
+  messageThreads  MessageThread[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  structureId  String?
+  role         String    @default("CLIENT") // "ADMIN" | "CLIENT"
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  structure Structure? @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  documents  Document[]
+  messages   Message[]
+}
+
+model ModuleAccess {
+  id         String     @id @default(cuid())
+  structureId String
+  moduleKey  String     // "PACK_CONTROLE" | "PARCOURS_ENTREE" | "ECHELLE_QUALITE" | "CHRONO_MANAGER" | "SUIVI" | "DOCUMENTS" | "MESSAGERIE" | "PARAMETRES"
+  isEnabled  Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  structure Structure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@unique([structureId, moduleKey])
+  @@index([structureId])
+}
+
+model OfferPurchased {
+  id         String       @id @default(cuid())
+  structureId String
+  offerKey   String       // "SECURISATION" | "STRUCTURATION" | "PILOTAGE_QUALITE"
+  startDate  DateTime?
+  endDate    DateTime?
+  status     String       @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "ARCHIVED"
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  structure Structure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@index([structureId])
+}
+
+model Document {
+  id            String           @id @default(cuid())
+  structureId   String
+  moduleKey     String?   // "PACK_CONTROLE" | "PARCOURS_ENTREE" | "ECHELLE_QUALITE" | "CHRONO_MANAGER" | "SUIVI" | "DOCUMENTS" | "MESSAGERIE" | "PARAMETRES"
+  folder        String     // "FAMILLES" | "EQUIPE" | "DIRECTION" | "ARCHIVES" | "GENERAL"
+  title         String
+  category      String     // "PROVIDED_BY_CLIENT" | "PROVIDED_BY_ADMIN" | "ATTESTATION" | "OPCO" | "COMPTE_RENDU" | "OTHER"
+  fileKey       String
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  uploadedByUserId String
+  createdAt     DateTime         @default(now())
+
+  structure Structure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedByUserId], references: [id])
+
+  @@index([structureId])
+  @@index([moduleKey])
+  @@index([folder])
+}
+
+model ActionItem {
+  id          String        @id @default(cuid())
+  structureId String
+  title       String
+  description String?
+  status      String        @default("TODO") // "TODO" | "IN_PROGRESS" | "DONE"
+  dueDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  structure Structure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@index([structureId])
+  @@index([status])
+}
+
+model MeetingReport {
+  id          String   @id @default(cuid())
+  structureId String
+  meetingDate DateTime
+  summary     String
+  createdAt   DateTime @default(now())
+
+  structure Structure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@index([structureId])
+  @@index([meetingDate])
+}
+
+model QualityAssessment {
+  id         String   @id @default(cuid())
+  structureId String
+  createdAt  DateTime @default(now())
+  scoreLevel Int      // 1-5
+  answers    String   // Réponses du formulaire (JSON stringifié)
+  results    String   // Résultats calculés (JSON stringifié)
+  actionPlan String?  // Plan d'actions généré (JSON stringifié)
+
+  structure Structure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@index([structureId])
+}
+
+model MessageThread {
+  id         String       @id @default(cuid())
+  structureId String
+  subject    String
+  status     String       @default("OPEN") // "OPEN" | "CLOSED"
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  structure Structure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@index([structureId])
+  @@index([status])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderUserId String?
+  senderRole String       // "ADMIN" | "CLIENT"
+  body      String
+  createdAt DateTime @default(now())
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User?         @relation(fields: [senderUserId], references: [id])
+
+  @@index([threadId])
+}
+
+model Lead {
+  id            String      @id @default(cuid())
+  structureName String
+  contactName   String?
+  email         String   @unique
+  phone         String?
+  source        String?     // "diagnostic", "contact", etc.
+  status        String      @default("NEW") // "NEW" | "CONTACTED" | "QUALIFIED" | "LOST"
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  diagnosticSubmissions DiagnosticSubmission[]
+
+  @@index([email])
+  @@index([status])
+  @@index([source])
+}
+
+model DiagnosticSubmission {
+  id            String          @id @default(cuid())
+  leadId        String?
+  answers       String          // Réponses complètes du questionnaire (JSON stringifié)
+  scores        String          // { securisation: number, structuration: number, pilotage: number } (JSON stringifié)
+  primaryAxis   String      // "SECURISATION" | "STRUCTURATION" | "PILOTAGE_QUALITE"
+  secondaryAxis String      // "SECURISATION" | "STRUCTURATION" | "PILOTAGE_QUALITE"
+  tertiaryAxis  String      // "SECURISATION" | "STRUCTURATION" | "PILOTAGE_QUALITE"
+  recommendation String         // { offer: string, plan: array } (JSON stringifié)
+  meta          String          // { type_structure, capacite, anciennete, contexte, urgence, objectif_3_mois } (JSON stringifié)
+  createdAt     DateTime        @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([primaryAxis])
+  @@index([createdAt])
+}
+
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  content   String   // Contenu éditable (peut être string, object, array) (JSON stringifié)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
