@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyPassword, createSession } from "@/lib/auth";
 import { loginSchema } from "@/lib/validators";
@@ -28,19 +28,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mettre à jour lastLoginAt
+    // Mettre Ã  jour lastLoginAt
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
 
-    await createSession(user.id, user.role, user.structureId);
+    await createSession(user.id, user.role as "ADMIN" | "CLIENT", user.structureId);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     if (error.issues) {
       return NextResponse.json(
-        { error: "Données invalides", details: error.issues },
+        { error: "DonnÃ©es invalides", details: error.issues },
         { status: 400 }
       );
     }

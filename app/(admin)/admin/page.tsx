@@ -1,7 +1,8 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/Card";
+import Link from "next/link";
 
 export default async function AdminDashboardPage() {
   const user = await getCurrentUser();
@@ -14,11 +15,11 @@ export default async function AdminDashboardPage() {
     prisma.structure.count(),
     prisma.user.count(),
     prisma.document.count(),
-    prisma.lead.count({ where: { processed: false } }),
+    prisma.lead.count({ where: { status: "NEW" } }),
   ]);
 
   const recentLeads = await prisma.lead.findMany({
-    where: { processed: false },
+    where: { status: "NEW" },
     orderBy: { createdAt: "desc" },
     take: 5,
   });
@@ -48,13 +49,26 @@ export default async function AdminDashboardPage() {
 
       {recentLeads.length > 0 && (
         <Card>
-          <h2 className="text-xl font-bold mb-4">Nouveaux contacts</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Nouveaux contacts</h2>
+            <Link
+              href="/admin/leads"
+              className="text-sm text-primary hover:underline"
+            >
+              Voir tous les leads â†’
+            </Link>
+          </div>
           <div className="space-y-3">
             {recentLeads.map((lead) => (
               <div key={lead.id} className="p-3 border border-border rounded">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <span className="font-semibold">{lead.name}</span>
+                    <span className="font-semibold">{lead.structureName}</span>
+                    {lead.contactName && (
+                      <span className="text-sm text-text-light ml-2">
+                        ({lead.contactName})
+                      </span>
+                    )}
                     <span className="text-sm text-text-light ml-2">({lead.email})</span>
                   </div>
                   <span className="text-xs text-text-light">
@@ -62,9 +76,8 @@ export default async function AdminDashboardPage() {
                   </span>
                 </div>
                 <div className="text-sm text-text-light">
-                  <div>Structure: {lead.structureName}</div>
-                  <div>Objet: {lead.subject}</div>
-                  {lead.offerKey && <div>Offre: {lead.offerKey}</div>}
+                  {lead.source && <div>Source: {lead.source}</div>}
+                  {lead.phone && <div>TÃ©lÃ©phone: {lead.phone}</div>}
                 </div>
               </div>
             ))}
